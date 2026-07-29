@@ -1,12 +1,11 @@
----
 services:
   unifi-os-server:
-    image: ghcr.io/lemker/unifi-os-server:latest
+    image: ghcr.io/mxkissnr/unifi-os-server:5.1.21
+    # Falls du lokal bauen willst, einfach das image durch den build-Block ersetzen:
+    # build: .
     container_name: unifi-os-server
+    privileged: true
     cgroup: host
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
     extra_hosts:
       host.docker.internal: host-gateway
     tmpfs:
@@ -16,29 +15,30 @@ services:
       - /var/lib/journal
       - /var/opt/unifi/tmp:size=64m
     environment:
-      - UOS_SYSTEM_IP=unifi.example.com
+      - UOS_SYSTEM_IP=127.0.0.1
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-      - /path/to/unifi-os-server/persistent:/persistent
-      - /path/to/unifi-os-server/var-log:/var/log
-      - /path/to/unifi-os-server/data:/data
-      - /path/to/unifi-os-server/srv:/srv
-      - /path/to/unifi-os-server/var-lib-unifi:/var/lib/unifi
-      - /path/to/unifi-os-server/var-lib-mongodb:/var/lib/mongodb
-      - /path/to/unifi-os-server/etc-rabbitmq-ssl:/etc/rabbitmq/ssl
+      - ./persistent:/persistent
+      - ./var-log:/var/log
+      - ./data:/data
+      - ./srv:/srv
+      - ./var-lib-unifi:/var/lib/unifi
+      - ./var-lib-mongodb:/var/lib/mongodb
+      - ./etc-rabbitmq-ssl:/etc/rabbitmq/ssl
     ports:
-      - 11443:443
-      - 5005:5005 # Optional
-      - 9543:9543 # Optional
-      - 6789:6789 # Optional
+      - 11443:11443
       - 8080:8080
-      - 8444:8444 # Optional
       - 3478:3478/udp
-      - 5514:5514/udp # Optional
       - 10003:10003/udp
-      - 127.0.0.1:11084:11084 # Optional
-      - 5671:5671 # Optional
-      - 8880:8880 # Optional
-      - 8881:8881 # Optional
-      - 8882:8882 # Optional
+      # Optional:
+      - 5005:5005
+      - 9543:9543
+      - 6789:6789
+      - 8444:8444
+      - 5514:5514/udp
+      - 127.0.0.1:11084:11084
+      - 5671:5671
+      - 8880:8880
+      - 8881:8881
+      - 8882:8882
     restart: unless-stopped

@@ -1,0 +1,21 @@
+# Docker Volumes & Laufzeitdaten
+var-log/
+data/
+db/
+unifi-data/
+*.log
+
+# System- & Log-Dateien
+btmp
+wtmp
+
+# Zertifikate und Schlüssel
+*.pem
+*.crt
+*.key
+
+# Betriebssystem & Editoren
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
