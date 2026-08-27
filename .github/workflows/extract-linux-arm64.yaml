@@ -25,7 +25,7 @@ env:
 
 jobs:
   extract-image:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
     outputs:
       PODMAN_IMAGE_TAG: ${{ steps.tag.outputs.PODMAN_IMAGE_TAG }}
@@ -44,7 +44,6 @@ jobs:
           curl -o unifi-os-server "${{ inputs.UOS_DOWNLOAD }}"
           sudo chmod +x unifi-os-server
           echo "y" | sudo ./unifi-os-server
-        continue-on-error: true
       
       - name: Get uosserver image for runner
         run: |
@@ -58,7 +57,7 @@ jobs:
           podman images
 
       - name: Login to GHCR
-        uses: redhat-actions/podman-login@4c93cb1ea36b10156ea541570dc69bc04dffe10e # v1.1.2
+        uses: redhat-actions/podman-login@50c2d9a331bb67c8fdab99b86455fad05e2e3252 # v2.0
         with:
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
