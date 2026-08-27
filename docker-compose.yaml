@@ -1,8 +1,6 @@
 services:
   unifi-os-server:
-    image: ghcr.io/mxkissnr/unifi-os-server:5.1.21
-    # Falls du lokal bauen willst, einfach das image durch den build-Block ersetzen:
-    # build: .
+    image: unifi-os-server-test:local
     container_name: unifi-os-server
     privileged: true
     cgroup: host
@@ -16,21 +14,16 @@ services:
       - /var/opt/unifi/tmp:size=64m
     environment:
       - UOS_SYSTEM_IP=127.0.0.1
+      - MONGO_INTERNAL=true
     volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-      - ./persistent:/persistent
-      - ./var-log:/var/log
-      - ./data:/data
-      - ./srv:/srv
+      - ./uosserver:/var/lib/uosserver
       - ./var-lib-unifi:/var/lib/unifi
-      - ./var-lib-mongodb:/var/lib/mongodb
-      - ./etc-rabbitmq-ssl:/etc/rabbitmq/ssl
+      - ./data:/data
     ports:
-      - 11443:11443
+      - 11443:443
       - 8080:8080
       - 3478:3478/udp
       - 10003:10003/udp
-      # Optional:
       - 5005:5005
       - 9543:9543
       - 6789:6789
