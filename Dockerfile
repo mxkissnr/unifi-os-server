@@ -11,6 +11,10 @@ FROM ubuntu:22.04 AS extractor
 ARG TARGETARCH
 ARG INSTALLER_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/9aee-linux-x64-5.1.37-a88d909c-2ac0-43f8-bb22-2bff3b673cbb.37-x64"
 ARG INSTALLER_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e060-linux-arm64-5.1.37-eafe439e-ca8f-4aeb-bd82-85d2edf345ff.37-arm64"
+# sha256_checksum from https://fw-update.ubnt.com/api/firmware-latest — kept
+# in lockstep with the URLs above by scripts/check-update.sh.
+ARG INSTALLER_SHA256_AMD64="4a5b1f7f29f25733cfc5f7497a63e3dbd4f4a616b352cbbd817a89eb1fa66b61"
+ARG INSTALLER_SHA256_ARM64="6a3d5069e6412fcb7d15e0a97bd013eea130a62565276d4b5e53b314de2a3e4d"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     binwalk jq p7zip-full curl ca-certificates \
@@ -19,12 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      URL="$INSTALLER_URL_ARM64"; \
+      URL="$INSTALLER_URL_ARM64"; SHA256="$INSTALLER_SHA256_ARM64"; \
     else \
-      URL="$INSTALLER_URL_AMD64"; \
+      URL="$INSTALLER_URL_AMD64"; SHA256="$INSTALLER_SHA256_AMD64"; \
     fi && \
     [ -n "$URL" ] || { echo "No installer URL for $TARGETARCH"; exit 1; } && \
-    curl -fL --retry 5 --retry-delay 2 -o installer.bin "$URL"
+    curl -fL --retry 5 --retry-delay 2 -o installer.bin "$URL" && \
+    echo "${SHA256}  installer.bin" | sha256sum -c -
 
 RUN binwalk --run-as=root -e installer.bin
 
@@ -66,6 +71,15 @@ ENV UOS_SERVER_VERSION="${UOS_SERVER_VERSION}" \
     APP_VERSION="${UOS_SERVER_VERSION}" \
     APP_MODEL="UOSSERVER" \
     PRODUCT_NAME="UniFi OS Server"
+
+# The packaging (this Dockerfile/repo) is AGPL-3.0; the UniFi OS Server
+# binary extracted into this image remains Ubiquiti's proprietary software,
+# unmodified and unaffiliated with this project.
+LABEL org.opencontainers.image.title="UniFi OS Server" \
+      org.opencontainers.image.description="Unofficial Docker/Kubernetes packaging of the self-hosted UniFi OS Server" \
+      org.opencontainers.image.source="https://github.com/mxkissnr/unifi-os-server" \
+      org.opencontainers.image.version="${UOS_SERVER_VERSION}" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 
 STOPSIGNAL SIGRTMIN+3
 ENTRYPOINT ["/root/uos-entrypoint.sh"]
