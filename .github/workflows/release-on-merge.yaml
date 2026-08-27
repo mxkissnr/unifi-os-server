@@ -19,7 +19,7 @@ jobs:
       - name: Extract version from Dockerfile
         id: version
         run: |
-          VERSION=$(grep -oP 'ARG UOS_VERSION="\K[^"]+' Dockerfile)
+          VERSION=$(grep -oP 'ARG UOS_SERVER_VERSION="\K[^"]+' Dockerfile | head -n1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create Git tag
