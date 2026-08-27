@@ -61,7 +61,7 @@ RUN chmod +x /rootfs/root/uos-entrypoint.sh
 FROM scratch
 COPY --from=extractor /rootfs /
 
-ARG UOS_SERVER_VERSION="5.1.21"
+ARG UOS_SERVER_VERSION="5.1.37"
 ENV UOS_SERVER_VERSION="${UOS_SERVER_VERSION}" \
     APP_VERSION="${UOS_SERVER_VERSION}" \
     APP_MODEL="UOSSERVER" \
