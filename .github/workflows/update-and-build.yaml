@@ -1,0 +1,55 @@
+name: Check for UOS update and build
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # täglich 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  update-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new UOS Server version
+        id: check
+        run: bash ./scripts/check-update.sh
+
+      - name: Set up QEMU
+        if: steps.check.outputs.updated == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.updated == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.check.outputs.updated == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (multi-arch)
+        if: steps.check.outputs.updated == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/mxkissnr/unifi-os-server:v${{ steps.check.outputs.new_version }}
+            ghcr.io/mxkissnr/unifi-os-server:latest
+
+      - name: Commit updated Dockerfile
+        if: steps.check.outputs.updated == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Dockerfile
+          git commit -m "chore: update UOS Server to ${{ steps.check.outputs.new_version }}"
+          git push
