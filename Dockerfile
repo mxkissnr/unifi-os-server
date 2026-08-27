@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Version & Download-URLs (werden vom Update-Skript automatisch aktualisiert)
-ARG UOS_VERSION="5.1.37"
+ARG UOS_VERSION="5.1.21"
 ARG UOS_BINARY_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/9aee-linux-x64-5.1.37-a88d909c-2ac0-43f8-bb22-2bff3b673cbb.37-x64"
 ARG UOS_BINARY_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e060-linux-arm64-5.1.37-eafe439e-ca8f-4aeb-bd82-85d2edf345ff.37-arm64"
 
