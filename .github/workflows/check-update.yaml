@@ -1,0 +1,36 @@
+name: Check for UOS update (PR)
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new UOS Server version
+        id: check
+        run: bash ./scripts/check-update.sh
+
+      - name: Create Pull Request
+        if: steps.check.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update UOS Server to ${{ steps.check.outputs.new_version }}"
+          title: "Update UOS Server to ${{ steps.check.outputs.new_version }}"
+          body: |
+            Automatischer Update-Check hat eine neue UniFi OS Server Version gefunden.
+
+            **Neue Version:** `${{ steps.check.outputs.new_version }}`
+
+            Nach dem Merge wird automatisch ein Release erstellt und das Image gebaut & gepusht.
+          branch: update-uos/${{ steps.check.outputs.new_version }}
+          labels: uos-update
+          delete-branch: true
