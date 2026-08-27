@@ -1,6 +1,6 @@
 services:
   unifi-os-server:
-    image: unifi-os-server-test:local
+    image: ghcr.io/mxkissnr/unifi-os-server:latest
     container_name: unifi-os-server
     privileged: true
     cgroup: host
