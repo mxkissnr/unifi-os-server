@@ -1,36 +1,71 @@
-FROM ubuntu:24.04
-ENV DEBIAN_FRONTEND=noninteractive
-# 1. System-Abhängigkeiten installieren
-RUN apt-get update && apt-get install -y \
-    curl \
-    systemd \
-    systemd-sysv \
-    podman \
-    slirp4netns \
-    iptables \
-    ca-certificates \
+# syntax=docker/dockerfile:1
+# Self-contained build: downloads the installer, extracts the embedded OCI
+# image with binwalk, flattens its layers into a rootfs, and layers the
+# entrypoint on top. No pre-built base image required.
+
+# ---------------------------------------------------------------------------
+# Stage 1 – extract the UniFi OS Server rootfs from the installer binary
+# ---------------------------------------------------------------------------
+FROM ubuntu:22.04 AS extractor
+
+ARG TARGETARCH
+ARG INSTALLER_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/9aee-linux-x64-5.1.37-a88d909c-2ac0-43f8-bb22-2bff3b673cbb.37-x64"
+ARG INSTALLER_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e060-linux-arm64-5.1.37-eafe439e-ca8f-4aeb-bd82-85d2edf345ff.37-arm64"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    binwalk jq p7zip-full curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Version & Download-URLs (werden vom Update-Skript automatisch aktualisiert)
-ARG UOS_VERSION="5.1.37"
-ARG UOS_BINARY_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/9aee-linux-x64-5.1.37-a88d909c-2ac0-43f8-bb22-2bff3b673cbb.37-x64"
-ARG UOS_BINARY_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e060-linux-arm64-5.1.37-eafe439e-ca8f-4aeb-bd82-85d2edf345ff.37-arm64"
+WORKDIR /build
 
-# 3. Binary passend zur Build-Architektur herunterladen
-ARG TARGETARCH
-RUN set -eux; \
-    case "${TARGETARCH}" in \
-      amd64) URL="${UOS_BINARY_URL_AMD64}" ;; \
-      arm64) URL="${UOS_BINARY_URL_ARM64}" ;; \
-      *) echo "Nicht unterstützte Architektur: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    curl -L -o /usr/local/bin/unifi-os-server "$URL" && \
-    chmod +x /usr/local/bin/unifi-os-server
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      URL="$INSTALLER_URL_ARM64"; \
+    else \
+      URL="$INSTALLER_URL_AMD64"; \
+    fi && \
+    [ -n "$URL" ] || { echo "No installer URL for $TARGETARCH"; exit 1; } && \
+    curl -fL --retry 5 --retry-delay 2 -o installer.bin "$URL"
 
-ENV APP_VERSION=${UOS_VERSION}
+RUN binwalk --run-as=root -e installer.bin
 
-# 4. Dein Entrypoint-Skript einbinden
-COPY uos-entrypoint.sh /uos-entrypoint.sh
-RUN chmod +x /uos-entrypoint.sh
+RUN /bin/bash <<'EXTRACT'
+set -eo pipefail
+IMAGE_TAR=$(find /build -type f -name 'image.tar' -print -quit)
+[ -n "$IMAGE_TAR" ] || { echo "image.tar not found after extraction"; exit 1; }
+mkdir oci
+tar xf "$IMAGE_TAR" -C oci/
+MANIFEST=$(jq -r '.manifests[0].digest' oci/index.json | cut -d: -f2)
+mkdir /rootfs
+jq -r '.layers[].digest' "oci/blobs/sha256/$MANIFEST" | cut -d: -f2 | \
+while read -r layer; do
+  echo "Extracting layer $layer"
+  tar xf "oci/blobs/sha256/$layer" -C /rootfs
+  find /rootfs -name '.wh.*' 2>/dev/null | while read -r wh; do
+    base=$(basename "$wh"); dir=$(dirname "$wh")
+    if [ "$base" = ".wh..wh..opq" ]; then
+      find "$dir" -mindepth 1 -maxdepth 1 ! -name '.wh..wh..opq' -exec rm -rf {} +
+    else
+      rm -rf "$dir/${base#.wh.}"
+    fi
+    rm -f "$wh"
+  done
+done
+EXTRACT
+
+COPY uos-entrypoint.sh /rootfs/root/uos-entrypoint.sh
+RUN chmod +x /rootfs/root/uos-entrypoint.sh
+
+# ---------------------------------------------------------------------------
+# Stage 2 – final image from the extracted rootfs
+# ---------------------------------------------------------------------------
+FROM scratch
+COPY --from=extractor /rootfs /
+
+ARG UOS_SERVER_VERSION="5.1.37"
+ENV UOS_SERVER_VERSION="${UOS_SERVER_VERSION}" \
+    APP_VERSION="${UOS_SERVER_VERSION}" \
+    APP_MODEL="UOSSERVER" \
+    PRODUCT_NAME="UniFi OS Server"
+
 STOPSIGNAL SIGRTMIN+3
-ENTRYPOINT ["/uos-entrypoint.sh"]
+ENTRYPOINT ["/root/uos-entrypoint.sh"]
