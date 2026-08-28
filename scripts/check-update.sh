@@ -18,6 +18,14 @@ ARM64=$(fetch "linux-arm64")
 NEW_VERSION=$(echo "$AMD64" | jq -r '.version' | sed 's/^v//')
 NEW_URL_AMD64=$(echo "$AMD64" | jq -r '._links.data.href')
 NEW_URL_ARM64=$(echo "$ARM64" | jq -r '._links.data.href')
+NEW_SHA256_AMD64=$(echo "$AMD64" | jq -r '.sha256_checksum')
+NEW_SHA256_ARM64=$(echo "$ARM64" | jq -r '.sha256_checksum')
+
+for arch_sha in "amd64:$NEW_SHA256_AMD64" "arm64:$NEW_SHA256_ARM64"; do
+  arch="${arch_sha%%:*}"
+  sha="${arch_sha#*:}"
+  [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || { echo "Ubiquiti liefert keinen gültigen sha256_checksum für $arch — Abbruch." >&2; exit 1; }
+done
 
 CURRENT_VERSION=$(grep -oP 'ARG UOS_SERVER_VERSION="\K[^"]+' "$DOCKERFILE" | tail -n1)
 
@@ -28,6 +36,8 @@ if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
   echo "-> Update verfügbar, aktualisiere $DOCKERFILE"
   sed -i "s|ARG INSTALLER_URL_AMD64=\".*\"|ARG INSTALLER_URL_AMD64=\"$NEW_URL_AMD64\"|" "$DOCKERFILE"
   sed -i "s|ARG INSTALLER_URL_ARM64=\".*\"|ARG INSTALLER_URL_ARM64=\"$NEW_URL_ARM64\"|" "$DOCKERFILE"
+  sed -i "s|ARG INSTALLER_SHA256_AMD64=\".*\"|ARG INSTALLER_SHA256_AMD64=\"$NEW_SHA256_AMD64\"|" "$DOCKERFILE"
+  sed -i "s|ARG INSTALLER_SHA256_ARM64=\".*\"|ARG INSTALLER_SHA256_ARM64=\"$NEW_SHA256_ARM64\"|" "$DOCKERFILE"
   sed -i "0,/ARG UOS_SERVER_VERSION=\".*\"/s||ARG UOS_SERVER_VERSION=\"$NEW_VERSION\"|" "$DOCKERFILE"
 
   if [ -n "${GITHUB_OUTPUT:-}" ]; then

@@ -13,6 +13,8 @@ services:
       - /var/lib/journal
       - /var/opt/unifi/tmp:size=64m
     environment:
+      # Replace with the host's actual reachable IP/hostname — devices adopt
+      # against this address, 127.0.0.1 will not work outside this container.
       - UOS_SYSTEM_IP=127.0.0.1
       - MONGO_INTERNAL=true
     volumes:
