@@ -9,12 +9,12 @@
 FROM ubuntu:22.04 AS extractor
 
 ARG TARGETARCH
-ARG INSTALLER_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/9aee-linux-x64-5.1.37-a88d909c-2ac0-43f8-bb22-2bff3b673cbb.37-x64"
-ARG INSTALLER_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e060-linux-arm64-5.1.37-eafe439e-ca8f-4aeb-bd82-85d2edf345ff.37-arm64"
+ARG INSTALLER_URL_AMD64="https://fw-download.ubnt.com/data/unifi-os-server/0e7e-linux-x64-5.1.40-149c6209-9218-4925-86d2-227b6b92f94d.40-x64"
+ARG INSTALLER_URL_ARM64="https://fw-download.ubnt.com/data/unifi-os-server/e9d4-linux-arm64-5.1.40-b56d3f74-e1eb-454d-a8e7-6d7ccf8293c8.40-arm64"
 # sha256_checksum from https://fw-update.ubnt.com/api/firmware-latest — kept
 # in lockstep with the URLs above by scripts/check-update.sh.
-ARG INSTALLER_SHA256_AMD64="4a5b1f7f29f25733cfc5f7497a63e3dbd4f4a616b352cbbd817a89eb1fa66b61"
-ARG INSTALLER_SHA256_ARM64="6a3d5069e6412fcb7d15e0a97bd013eea130a62565276d4b5e53b314de2a3e4d"
+ARG INSTALLER_SHA256_AMD64="0778a134fe4ea67c9d238b3905276f5f1f4385706dffc8e0b82a65ffec36208b"
+ARG INSTALLER_SHA256_ARM64="152ca469691576781966e3b426bf691fb6e2d8ddf1117040296b269fa93d049f"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     binwalk jq p7zip-full curl ca-certificates \
@@ -66,7 +66,7 @@ RUN chmod +x /rootfs/root/uos-entrypoint.sh
 FROM scratch
 COPY --from=extractor /rootfs /
 
-ARG UOS_SERVER_VERSION="5.1.37"
+ARG UOS_SERVER_VERSION="5.1.40"
 ENV UOS_SERVER_VERSION="${UOS_SERVER_VERSION}" \
     APP_VERSION="${UOS_SERVER_VERSION}" \
     APP_MODEL="UOSSERVER" \
