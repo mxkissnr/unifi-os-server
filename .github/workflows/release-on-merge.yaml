@@ -5,36 +5,82 @@ on:
     types: [closed]
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
-  release:
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'uos-update'))
+  prepare:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.merged == true &&
+        contains(github.event.pull_request.labels.*.name, 'uos-update')
+      )
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Extract version from Dockerfile
         id: version
         run: |
           VERSION=$(grep -oP 'ARG UOS_SERVER_VERSION="\K[^"]+' Dockerfile | head -n1)
+
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not determine UOS_SERVER_VERSION from Dockerfile"
+            exit 1
+          fi
+
+          echo "UOS Server version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create Git tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
+          TAG="v${VERSION}"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
 
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists."
+          else
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
+
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    permissions:
+      contents: read
+      packages: write
+
+  release:
+    needs:
+      - prepare
+      - build
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          name: "v${{ steps.version.outputs.version }}"
+          tag_name: "v${{ needs.prepare.outputs.version }}"
+          name: "v${{ needs.prepare.outputs.version }}"
           generate_release_notes: true
-        # The image build/push itself happens in build-image.yaml, triggered
-        # by the "release: published" event this step fires. Do not duplicate
-        # the docker build here — see .github/workflows/build-image.yaml.
